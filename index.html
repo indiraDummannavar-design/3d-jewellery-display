@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>3D Ring Showcase — Interactive View (PBR)</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+   
+    #closeBtn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 18px 20px;
+
+    background: linear-gradient(145deg, #d948c2, #b6259e);
+    color: white;
+    border-radius: 12px;
+    border: none;
+
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+
+    cursor: pointer;
+    display: none;
+    z-index: 9999;
+
+    box-shadow: 0 3px 14px rgba(0,0,0,0.25);
+}
+
+  </style>
+
+
+  <style>
+    .main-title {
+    font-family: "Playfair Display", serif;
+    font-weight: 800;
+    font-size: 50px;
+    color: #b6259e;
+    text-align: center;
+
+    margin-top: 28px;
+    margin-bottom: 12px;
+    letter-spacing: 1.2px;
+
+    position: relative;
+    z-index: 9999;
+}
+ </style>
+ <style>a-sky {
+    filter: brightness(1.08) saturate(1.1);
+}
+</style>
+
+
+
+
+</head>
+
+<body>
+  <h1 class="main-title">JEWELS — LUXURY RING STUDIO</h1>
+
+<button id="closeBtn" aria-label="Close ring view">Close Ring View</button>
+
+<a-scene
+  cursor="rayOrigin: mouse"
+  raycaster="objects: .clickable"
+  background="color: #F5E9D3"
+  renderer="antialias: true; physicallyCorrectLights: true; colorManagement: true; toneMapping: ACESFilmic"
+  vr-mode-ui="enabled: false"
+  >
+  <a-assets>
+  <img id="pinkbg" src="pink.jpg" alt="Pink background for 3D ring showcase">
+  
+</a-assets>
+
+</a-assets>
+
+</a-assets>
+
+<a-sky src="#pinkbg" rotation="0 -90 0"></a-sky>
+
+
+
+
+  <!-- Lights: hemisphere + directional + subtle point for fill (physically correct) -->
+  <a-entity light="type: hemisphere; skyColor: #ffffff; groundColor: #a08b7a; intensity: 0.7"></a-entity>
+
+  <!-- Key directional light (casts shadows) -->
+  <a-entity
+    light="type: directional; intensity: 1.2; castShadow: true; shadowMapWidth:2048; shadowMapHeight:2048; shadowBias: -0.0005"
+    position="3 6 4"
+    rotation="-45 -35 0">
+  </a-entity>
+
+  <!-- Fill point light near camera to create specular highlights -->
+  <a-entity light="type: point; intensity: 0.55; distance: 12" position="0 3 6"></a-entity>
+
+  <!-- Camera -->
+  <a-entity id="cam" camera position="0 1.6 8"></a-entity>
+
+
+  
+  <!-- Ground plane receives shadows -->
+  <a-plane rotation="-90 0 0" width="20" height="20" position="0 -0.5 0" color="#f5e0cc" material="roughness:1" shadow="receive: true"></a-plane>
+
+  <!-- Wooden Display Box (lowered as requested) -->
+  <a-box
+    id="displayBox"
+    position="0 0.10 0"
+    width="6.5"
+    height="0.40"
+    depth="2.2"
+    src="#wood"
+    material="repeat: 3 2; roughness: 0.82; metalness: 0.05"
+    shadow="receive: true"
+    >
+  </a-box>
+
+  <!-- wooden trims -->
+  <a-box position="0 0.32 0" width="6.55" height="0.08" depth="2.25" color="#8b5a2b" material="roughness:0.95; metalness:0.05" shadow="receive: true"></a-box>
+  <a-box position="0 -0.08 0" width="6.55" height="0.08" depth="2.25" color="#8b5a2b" material="roughness:0.95; metalness:0.05" shadow="receive: true"></a-box>
+
+  <!-- Subtle soft shadow plane below the box -->
+  <a-plane position="0 -0.22 0" rotation="-90 0 0" width="8" height="3" color="#000" opacity="0.2"></a-plane>
+
+
+  <!-- ---------- RING ENTITIES ---------- -->
+  <!-- Important: enable cast/receive shadows and keep original transforms in attributes -->
+  <a-entity id="ring-group">
+    <a-entity class="clickable ringModel"
+              id="ring1"
+              gltf-model="url(models/goldring.glb)"
+              position="-2 1.3 0"
+              scale="0.095 0.095 0.095"
+              rotation="0 10 0"
+              shadow="cast: true; receive: false"
+              rotate-y
+          ring-view>
+    </a-entity>
+
+    <a-entity class="clickable ringModel"
+              id="ring2"
+              gltf-model="url(models/silverring.glb)"
+              position="0 1.3 0"
+              scale="0.075 0.075 0.075"
+              rotation="0 0 0"
+              shadow="cast: true; receive: false"
+              rotate-y
+          ring-view>
+    </a-entity>
+
+    <a-entity class="clickable ringModel"
+              id="ring3"
+              gltf-model="url(models/goldring2.glb)"
+              position="2 1.3 0"
+              scale="0.42 0.42 0.42"
+              rotation="0 -15 0"
+              shadow="cast: true; receive: false"
+              rotate-y
+          ring-view>
+    </a-entity>
+  </a-entity>
+  <a-circle 
+    position="0 0.2 0"
+    radius="2.8"
+    rotation="-90 0 0"
+    color="#000"
+    opacity="0.07"
+    material="shader: flat">
+</a-circle>
+
+
+  <!-- ---------- Interaction & PBR-ready logic ---------- -->
+  <script>
+    (function () {
+      window._selectedRing = null;
+
+      AFRAME.registerComponent('ring-view', {
+        init: function () {
+          const el = this.el;
+          const closeBtn = document.getElementById('closeBtn');
+
+          // SAVE original transform + scale exactly (deep copy)
+          this.originalPos = Object.assign({}, el.getAttribute('position'));
+          this.originalRot = Object.assign({}, el.getAttribute('rotation'));
+          this.originalScale = Object.assign({}, el.getAttribute('scale'));
+          // keep numeric values (sometimes strings)
+          this.originalPos = { x: parseFloat(this.originalPos.x), y: parseFloat(this.originalPos.y), z: parseFloat(this.originalPos.z) };
+          this.originalRot = { x: parseFloat(this.originalRot.x), y: parseFloat(this.originalRot.y), z: parseFloat(this.originalRot.z) };
+          this.originalScale = { x: parseFloat(this.originalScale.x), y: parseFloat(this.originalScale.y), z: parseFloat(this.originalScale.z) };
+
+          this.isLifted = false;
+          this.isDragging = false;
+          this.spinActive = false;
+          this.animating = false; // prevents mid-animation interaction
+
+          this._lastPointerX = null;
+          this._accumRotationY = this.originalRot.y || 0;
+          this._pointerMoveHandler = this._onPointerMove.bind(this);
+          this._pointerUpHandler = this._onPointerUp.bind(this);
+          this._pointerDownHandler = this._onPointerDown.bind(this);
+
+          // click handler: block if another ring is selected or this one is animating
+          el.addEventListener('click', (evt) => {
+            // if dragging -> ignore
+            if (this.isDragging) return;
+
+            // if any ring is currently selected, ignore further clicks (state management requirement)
+            if (window._selectedRing) {
+              // If the already-selected ring is this element and it's closed, allow it.
+              if (window._selectedRing === el) return;
+              return; // ignore click on other rings until current ring is closed
+            }
+
+            // Prevent accidental double opens if animating
+            if (this.animating) return;
+
+            // select this ring
+            window._selectedRing = el;
+            this._open();
+            closeBtn.style.display = 'block';
+          });
+
+          // Close button action
+          closeBtn.addEventListener('click', () => {
+            if (window._selectedRing === el) {
+              this._close();
+            }
+          });
+        },
+
+        _open: function () {
+          const el = this.el;
+          this.animating = true;
+
+          // compute forward offset: toward camera (slightly forward on Z negative)
+          // lift + forward + scale up target
+          const liftAmount = 1.8;
+          const forwardAmount = 0.8;
+          const targetX = this.originalPos.x;
+          const targetY = this.originalPos.y + liftAmount;
+          const targetZ = this.originalPos.z - forwardAmount;
+
+          // scale up to 1.2x
+          const sx = this.originalScale.x * 1.22;
+          const sy = this.originalScale.y * 1.22;
+          const sz = this.originalScale.z * 1.22;
+
+          // animate position (smooth)
+          el.setAttribute('animation__lift', `property: position; to: ${targetX} ${targetY} ${targetZ}; dur: 480; easing: easeOutCubic`);
+
+          // animate scale
+          el.setAttribute('animation__scaleup', `property: scale; to: ${sx} ${sy} ${sz}; dur: 420; easing: easeOutCubic`);
+
+          // pause any auto rotation, but start a subtle rotation-only animation while focused for presentation
+          // remove existing spin (if any)
+          el.removeAttribute('animation__spin');
+          // small slow rotation so highlights move (not full-speed)
+          el.setAttribute('animation__focusspin', {
+            property: 'rotation',
+            to: `0 360 0`,
+            loop: true,
+            dur: 6000,
+            easing: 'linear'
+          });
+
+          this.spinActive = true;
+          this.isLifted = true;
+
+          // prevent pointer drag until lift is finished — add pointerdown after lift completes
+          setTimeout(() => {
+            window.addEventListener('pointerdown', this._pointerDownHandler);
+            this.animating = false; // open animation finished
+          }, 520);
+        },
+
+        _close: function () {
+          const el = this.el;
+          this.animating = true;
+
+          // restore position, rotation and scale exactly
+          const orig = this.originalPos;
+          const origRot = this.originalRot;
+          const origScale = this.originalScale;
+
+          // animate down back to original position
+          el.setAttribute('animation__down', `property: position; to: ${orig.x} ${orig.y} ${orig.z}; dur: 420; easing: easeOutCubic`);
+
+          // animate scale back to original
+          el.setAttribute('animation__scaledown', `property: scale; to: ${origScale.x} ${origScale.y} ${origScale.z}; dur: 420; easing: easeOutCubic`);
+
+          // remove rotating animation and reset rotation smoothly
+          el.removeAttribute('animation__focusspin');
+          el.setAttribute('animation__rotreset', `property: rotation; to: ${origRot.x || 0} ${origRot.y || 0} ${origRot.z || 0}; dur: 420; easing: easeOutCubic`);
+
+          // cleanup drag listeners
+          window.removeEventListener('pointerdown', this._pointerDownHandler);
+          window.removeEventListener('pointermove', this._pointerMoveHandler);
+          window.removeEventListener('pointerup', this._pointerUpHandler);
+          this.isDragging = false;
+          this.isLifted = false;
+          this.spinActive = false;
+
+          // hide UI and clear selected after animations completed
+          setTimeout(() => {
+            const closeBtn = document.getElementById('closeBtn');
+            closeBtn.style.display = 'none';
+            if (window._selectedRing === el) window._selectedRing = null;
+            this.animating = false;
+          }, 440);
+        },
+
+        _onPointerDown: function (evt) {
+          // only allow dragging when selected and lifted and not animating
+          if (window._selectedRing !== this.el || !this.isLifted || this.animating) return;
+
+          this.isDragging = true;
+          this._lastPointerX = evt.clientX;
+
+          // stop focus rotation so user can control manually
+          if (this.spinActive) {
+            this.el.removeAttribute('animation__focusspin');
+            this.spinActive = false;
+          }
+
+          window.addEventListener('pointermove', this._pointerMoveHandler);
+          window.addEventListener('pointerup', this._pointerUpHandler);
+        },
+
+        _onPointerMove: function (evt) {
+          if (!this.isDragging) return;
+          const dx = evt.clientX - this._lastPointerX;
+          this._lastPointerX = evt.clientX;
+          const sens = 0.25;
+          this._accumRotationY += dx * sens;
+          const rotX = this.originalRot.x || 0;
+          const rotZ = this.originalRot.z || 0;
+          this.el.setAttribute('rotation', { x: rotX, y: this._accumRotationY, z: rotZ });
+        },
+
+        _onPointerUp: function () {
+          if (!this.isDragging) return;
+          this.isDragging = false;
+          window.removeEventListener('pointermove', this._pointerMoveHandler);
+          window.removeEventListener('pointerup', this._pointerUpHandler);
+        }
+      });
+    })();
+  </script>
+  <script>
+AFRAME.registerComponent('rotate-y', {
+  schema: { sensitivity: { default: 0.25 } },
+
+  init: function () {
+    this.accumY = this.el.getAttribute('rotation').y || 0;
+    this.dragging = false;
+    this.lastX = 0;
+
+    this.onDown = this.startDrag.bind(this);
+    this.onMove = this.drag.bind(this);
+    this.onUp = this.endDrag.bind(this);
+
+    this.el.sceneEl.canvas.addEventListener('pointerdown', this.onDown);
+  },
+
+  startDrag: function (e) {
+
+    // ❗ IMPORTANT FIX:
+    // Only rotate the ring IF it's the one currently selected
+    if (window._selectedRing !== this.el) return;
+
+    this.dragging = true;
+    this.lastX = e.clientX;
+
+    window.addEventListener('pointermove', this.onMove);
+    window.addEventListener('pointerup', this.onUp);
+  },
+
+  drag: function (e) {
+    if (!this.dragging) return;
+
+    const dx = e.clientX - this.lastX;
+    this.lastX = e.clientX;
+
+    this.accumY += dx * this.data.sensitivity;
+
+    const rot = this.el.getAttribute('rotation');
+    this.el.setAttribute('rotation', {
+      x: rot.x,
+      y: this.accumY,
+      z: rot.z
+    });
+  },
+
+  endDrag: function () {
+    this.dragging = false;
+    window.removeEventListener('pointermove', this.onMove);
+    window.removeEventListener('pointerup', this.onUp);
+  }
+});
+
+</script>
+<script>
+AFRAME.registerComponent('ring-view', {
+  init: function () {
+    const el = this.el;
+    const closeBtn = document.getElementById('closeBtn');
+
+    this.animating = false;
+    this.originalPos = Object.assign({}, el.getAttribute('position'));
+    this.originalScale = Object.assign({}, el.getAttribute('scale'));
+
+    el.addEventListener('click', () => {
+      if (window._selectedRing || this.animating) return;
+      window._selectedRing = el;
+      this.open();
+      closeBtn.style.display = 'block';
+    });
+
+    closeBtn.addEventListener('click', () => {
+      if (window._selectedRing === el) this.close();
+    });
+  },
+
+  open: function () {
+    const el = this.el;
+    this.animating = true;
+
+    const pos = this.originalPos;
+    const scl = this.originalScale;
+
+    el.setAttribute("animation__openpos",
+      `property: position; to: ${pos.x} ${pos.y + 1.8} ${pos.z - 0.8}; dur: 450; easing: easeOutCubic`);
+
+    el.setAttribute("animation__openscl",
+      `property: scale; to: ${scl.x * 1.25} ${scl.y * 1.25} ${scl.z * 1.25}; dur: 450; easing: easeOutCubic`);
+
+    setTimeout(() => { this.animating = false; }, 460);
+  },
+
+  close: function () {
+    const el = this.el;
+    this.animating = true;
+
+    const pos = this.originalPos;
+    const scl = this.originalScale;
+
+    el.setAttribute("animation__closepos",
+      `property: position; to: ${pos.x} ${pos.y} ${pos.z}; dur: 420; easing: easeOutCubic`);
+
+    el.setAttribute("animation__closescl",
+      `property: scale; to: ${scl.x} ${scl.y} ${scl.z}; dur: 420; easing: easeOutCubic`);
+
+    setTimeout(() => {
+      document.getElementById('closeBtn').style.display = "none";
+      window._selectedRing = null;
+      this.animating = false;
+    }, 450);
+  }
+});
+</script>
+
+
+</a-scene>
+</body>
+</html>
